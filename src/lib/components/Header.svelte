@@ -70,7 +70,7 @@
         onclick={onRefresh}
         disabled={isRefreshing}
         class="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-        title="Rafraîchir depuis le disque"
+        title="Rafraîchir depuis le disque (Ctrl+R)"
         aria-label="Rafraîchir depuis le disque"
       >
         <RefreshCw class="w-4 h-4 {isRefreshing ? 'animate-spin text-blue-400' : ''}" />

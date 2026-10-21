@@ -326,7 +326,48 @@
       await saveRecentProjects(projects);
     }
   }
+
+  function handleGlobalKeyDown(event: KeyboardEvent) {
+    const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+
+    // Raccourci Escape : ferme les modales ouvertes
+    if (event.key === 'Escape') {
+      if (isSettingsModalOpen) {
+        isSettingsModalOpen = false;
+        return;
+      }
+      if (isConflictModalOpen) {
+        isConflictModalOpen = false;
+        return;
+      }
+    }
+
+    const target = event.target as HTMLElement | null;
+    const isTyping =
+      target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+    if (isCtrlOrCmd) {
+      if (event.key.toLowerCase() === 'o') {
+        event.preventDefault();
+        handleOpenProject();
+      } else if (event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        handleRefresh();
+      } else if (event.key === ',') {
+        event.preventDefault();
+        handleOpenSettings();
+      } else if (event.key === '1' && !isTyping) {
+        event.preventDefault();
+        handleTabChange('roadmap');
+      } else if (event.key === '2' && !isTyping) {
+        event.preventDefault();
+        handleTabChange('readme');
+      }
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleGlobalKeyDown} />
 
 <div class="flex h-full w-full overflow-hidden relative">
   <!-- Toast Feedback Notification -->

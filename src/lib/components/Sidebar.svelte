@@ -42,10 +42,14 @@
   <div class="p-3">
     <button
       onclick={onOpenProject}
-      class="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs rounded-lg transition-all shadow-md shadow-blue-900/20 cursor-pointer"
+      class="w-full flex items-center justify-between py-2 px-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs rounded-lg transition-all shadow-md shadow-blue-900/20 cursor-pointer"
+      title="Ouvrir un dossier de projet (Ctrl+O)"
     >
-      <FolderPlus class="w-4 h-4" />
-      <span>Ouvrir un projet</span>
+      <div class="flex items-center gap-2">
+        <FolderPlus class="w-4 h-4" />
+        <span>Ouvrir un projet</span>
+      </div>
+      <kbd class="text-[10px] font-mono bg-blue-700/80 text-blue-100 px-1.5 py-0.5 rounded border border-blue-400/30">Ctrl+O</kbd>
     </button>
   </div>
 
@@ -116,12 +120,13 @@
     <button
       onclick={onOpenSettings}
       class="w-full flex items-center justify-between py-2 px-3 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
+      title="Paramètres API (Ctrl+,)"
     >
       <div class="flex items-center gap-2">
         <Settings class="w-4 h-4 text-slate-400" />
         <span>Paramètres API</span>
       </div>
-      <ChevronRight class="w-3.5 h-3.5 text-slate-400" />
+      <kbd class="text-[10px] font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700/60">Ctrl+,</kbd>
     </button>
   </div>
 </aside>
