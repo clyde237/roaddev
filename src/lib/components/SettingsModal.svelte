@@ -9,15 +9,13 @@
     Sparkles,
     Loader2,
     Globe,
-    RefreshCw,
-    Zap,
+    Cpu,
   } from '@lucide/svelte';
   import type { AISettings } from '$lib/services/aiSettings';
   import { testAIConnection } from '$lib/services/aiGenerator';
   import {
-    PRESET_FREE_MODELS,
-    fetchFreeModels,
-    type OpenRouterModelInfo,
+    RECOMMENDED_NEMOTRON_CHAT,
+    RECOMMENDED_NEMOTRON_EMBED,
   } from '$lib/services/openrouterService';
 
   interface Props {
@@ -32,7 +30,7 @@
   let localSettings = $state<AISettings>({
     provider: 'openrouter',
     openrouterKey: '',
-    openrouterModel: 'auto-free',
+    openrouterModel: RECOMMENDED_NEMOTRON_CHAT,
     geminiKey: '',
     geminiModel: 'gemini-2.0-flash',
     mistralKey: '',
@@ -46,28 +44,13 @@
   let testResult = $state<{ success: boolean; message: string } | null>(null);
   let isSaving = $state<boolean>(false);
 
-  let freeModels = $state<OpenRouterModelInfo[]>(PRESET_FREE_MODELS);
-  let isLoadingModels = $state<boolean>(false);
-
   $effect(() => {
     localSettings = { ...settings };
+    if (!localSettings.openrouterModel || localSettings.openrouterModel === 'auto-free') {
+      localSettings.openrouterModel = RECOMMENDED_NEMOTRON_CHAT;
+    }
     testResult = null;
-    if (isOpen) {
-      loadOnlineModels();
-    }
   });
-
-  async function loadOnlineModels() {
-    isLoadingModels = true;
-    try {
-      const models = await fetchFreeModels(localSettings.openrouterKey);
-      if (models && models.length > 0) {
-        freeModels = models;
-      }
-    } finally {
-      isLoadingModels = false;
-    }
-  }
 
   async function handleTest() {
     isTesting = true;
@@ -132,7 +115,7 @@
 
       <!-- Body -->
       <div class="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-        <!-- Provider Selector (3 options) -->
+        <!-- Provider Selector -->
         <div>
           <span class="block text-xs font-semibold text-slate-300 mb-2">Fournisseur d'IA actif</span>
           <div class="grid grid-cols-3 gap-2.5">
@@ -149,7 +132,7 @@
                 <span class="text-xs font-semibold">OpenRouter</span>
               </div>
               <span class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                100% Gratuit
+                NVIDIA Nemotron
               </span>
             </button>
 
@@ -224,44 +207,44 @@
             </div>
 
             <div>
-              <div class="flex items-center justify-between mb-1.5">
-                <label for="openrouter-model" class="block text-xs font-semibold text-slate-300">
-                  Sélection du modèle (Gratuit)
-                </label>
-                <button
-                  type="button"
-                  onclick={loadOnlineModels}
-                  disabled={isLoadingModels}
-                  class="flex items-center gap-1 text-[11px] text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
-                  title="Actualiser la liste des modèles gratuits en direct"
-                >
-                  <RefreshCw class="w-3 h-3 {isLoadingModels ? 'animate-spin text-blue-400' : ''}" />
-                  <span>Actualiser</span>
-                </button>
+              <label for="openrouter-model" class="block text-xs font-semibold text-slate-300 mb-1.5">
+                Modèle OpenRouter
+              </label>
+
+              <div class="relative mb-2">
+                <input
+                  id="openrouter-model"
+                  type="text"
+                  bind:value={localSettings.openrouterModel}
+                  placeholder="ex: nvidia/nemotron-3.5-lightning:free"
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono"
+                />
               </div>
 
-              <select
-                id="openrouter-model"
-                bind:value={localSettings.openrouterModel}
-                class="w-full bg-slate-900 text-xs text-white px-3 py-2 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none"
-              >
-                <option value="auto-free">
-                  ⚡ Sélection automatique (Meilleur modèle gratuit avec basculement automatique)
-                </option>
-                {#each freeModels as model (model.id)}
-                  <option value={model.id}>
-                    {model.name}
-                  </option>
-                {/each}
-              </select>
-            </div>
+              <!-- Raccourcis modèles NVIDIA Nemotron -->
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onclick={() => (localSettings.openrouterModel = RECOMMENDED_NEMOTRON_CHAT)}
+                  class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] transition-all cursor-pointer {localSettings.openrouterModel === RECOMMENDED_NEMOTRON_CHAT
+                    ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-medium'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'}"
+                >
+                  <Cpu class="w-3 h-3 text-emerald-400" />
+                  <span>Nemotron 3.5 Lightning (Roadmaps)</span>
+                </button>
 
-            <!-- Free badge notice -->
-            <div class="flex items-start gap-2 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 text-[11px] text-slate-400">
-              <Zap class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <span>
-                <strong>Tolérance aux pannes intégrée :</strong> En mode automatique, si un modèle amont gratuit rencontre un quota temporaire (429), RoadDev bascule instantanément sur le modèle gratuit suivant du pool.
-              </span>
+                <button
+                  type="button"
+                  onclick={() => (localSettings.openrouterModel = RECOMMENDED_NEMOTRON_EMBED)}
+                  class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] transition-all cursor-pointer {localSettings.openrouterModel === RECOMMENDED_NEMOTRON_EMBED
+                    ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-medium'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'}"
+                >
+                  <Cpu class="w-3 h-3 text-purple-400" />
+                  <span>Nemotron 3.5 Embed 1B</span>
+                </button>
+              </div>
             </div>
           </div>
         {:else if localSettings.provider === 'gemini'}
