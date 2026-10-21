@@ -45,12 +45,14 @@ async function getSettingsStore(): Promise<Store | null> {
  * Charge les paramètres d'IA depuis le store sécurisé de l'OS
  */
 export async function loadAISettings(): Promise<AISettings> {
+  let settings: AISettings = { ...DEFAULT_AI_SETTINGS };
+
   try {
     const store = await getSettingsStore();
     if (store) {
-      const saved = await store.get<AISettings>(SETTINGS_KEY);
+      const saved = await store.get<Partial<AISettings>>(SETTINGS_KEY);
       if (saved) {
-        return { ...DEFAULT_AI_SETTINGS, ...saved };
+        settings = { ...DEFAULT_AI_SETTINGS, ...saved };
       }
     }
   } catch (err) {
@@ -61,13 +63,23 @@ export async function loadAISettings(): Promise<AISettings> {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
-      return { ...DEFAULT_AI_SETTINGS, ...JSON.parse(raw) };
+      settings = { ...settings, ...JSON.parse(raw) };
     }
   } catch {
     // Ignore
   }
 
-  return { ...DEFAULT_AI_SETTINGS };
+  // Migration automatique vers OpenRouter (Gemini direct n'est plus privilégié)
+  if (settings.provider === 'gemini') {
+    settings.provider = 'openrouter';
+    saveAISettings(settings).catch(() => {});
+  }
+
+  if (settings.openrouterKey && settings.provider !== 'mistral') {
+    settings.provider = 'openrouter';
+  }
+
+  return settings;
 }
 
 /**

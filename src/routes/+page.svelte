@@ -213,12 +213,22 @@
 
     // Vérification de la clé API
     const hasKey =
-      aiSettings.provider === 'gemini' ? !!aiSettings.geminiKey : !!aiSettings.mistralKey;
+      aiSettings.provider === 'openrouter'
+        ? !!aiSettings.openrouterKey
+        : aiSettings.provider === 'gemini'
+        ? !!aiSettings.geminiKey
+        : !!aiSettings.mistralKey;
 
     if (!hasKey) {
       isSettingsModalOpen = true;
+      const providerLabel =
+        aiSettings.provider === 'openrouter'
+          ? 'OpenRouter'
+          : aiSettings.provider === 'gemini'
+          ? 'Google AI Studio'
+          : 'Mistral AI';
       showToast(
-        `Veuillez configurer votre clé API ${aiSettings.provider === 'gemini' ? 'Google AI Studio' : 'Mistral'}.`,
+        `Veuillez configurer votre clé API ${providerLabel}.`,
         'error',
         5000
       );
