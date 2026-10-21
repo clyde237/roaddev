@@ -211,16 +211,18 @@
       return;
     }
 
+    // Recharge dynamiquement les derniers paramètres enregistrés
+    aiSettings = await loadAISettings();
+
     // Vérification de la clé API
     const hasKey =
       aiSettings.provider === 'openrouter'
-        ? !!aiSettings.openrouterKey
+        ? !!aiSettings.openrouterKey && aiSettings.openrouterKey.trim().length > 0
         : aiSettings.provider === 'gemini'
-        ? !!aiSettings.geminiKey
-        : !!aiSettings.mistralKey;
+        ? !!aiSettings.geminiKey && aiSettings.geminiKey.trim().length > 0
+        : !!aiSettings.mistralKey && aiSettings.mistralKey.trim().length > 0;
 
     if (!hasKey) {
-      isSettingsModalOpen = true;
       const providerLabel =
         aiSettings.provider === 'openrouter'
           ? 'OpenRouter'
@@ -228,9 +230,9 @@
           ? 'Google AI Studio'
           : 'Mistral AI';
       showToast(
-        `Veuillez configurer votre clé API ${providerLabel}.`,
+        `Clé API ${providerLabel} manquante. Veuillez la configurer dans les Paramètres (icône en bas de la barre latérale).`,
         'error',
-        5000
+        6000
       );
       return;
     }

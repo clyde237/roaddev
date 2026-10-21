@@ -64,6 +64,13 @@
   }
 
   async function handleSave() {
+    if (!isKeyProvided()) {
+      testResult = {
+        success: false,
+        message: 'Veuillez saisir votre clé API pour ce fournisseur avant d’enregistrer.',
+      };
+      return;
+    }
     isSaving = true;
     try {
       await onSave(localSettings);
@@ -176,20 +183,26 @@
                 <label for="openrouter-key" class="text-xs font-semibold text-slate-300">
                   Clé API OpenRouter
                 </label>
-                <a
-                  href="https://openrouter.ai/keys"
-                  target="_blank"
-                  class="text-[11px] text-blue-400 hover:underline"
-                >
-                  Obtenir une clé sur OpenRouter
-                </a>
+                {#if isKeyProvided()}
+                  <span class="text-[11px] text-emerald-400 font-medium">
+                    ✓ Clé configurée
+                  </span>
+                {:else}
+                  <a
+                    href="https://openrouter.ai/keys"
+                    target="_blank"
+                    class="text-[11px] text-blue-400 hover:underline"
+                  >
+                    Obtenir une clé sur OpenRouter
+                  </a>
+                {/if}
               </div>
               <div class="relative">
                 <input
                   id="openrouter-key"
                   type={showOpenRouterKey ? 'text' : 'password'}
                   bind:value={localSettings.openrouterKey}
-                  placeholder="sk-or-v1-..."
+                  placeholder="Collez votre clé API (sk-or-v1-...)"
                   class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono"
                 />
                 <button
@@ -395,7 +408,7 @@
           <button
             type="button"
             onclick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !isKeyProvided()}
             class="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium rounded-xl shadow-md transition-all cursor-pointer"
           >
             Enregistrer

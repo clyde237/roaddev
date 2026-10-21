@@ -46,27 +46,46 @@ async function getSettingsStore(): Promise<Store | null> {
  */
 export async function loadAISettings(): Promise<AISettings> {
   let settings: AISettings = { ...DEFAULT_AI_SETTINGS };
+  let loadedFromStore = false;
 
   try {
     const store = await getSettingsStore();
     if (store) {
       const saved = await store.get<Partial<AISettings>>(SETTINGS_KEY);
-      if (saved) {
+      if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
         settings = { ...DEFAULT_AI_SETTINGS, ...saved };
+        loadedFromStore = true;
       }
     }
   } catch (err) {
     console.error('Erreur chargement paramètres IA depuis le store:', err);
   }
 
-  // Fallback localStorage
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      settings = { ...settings, ...JSON.parse(raw) };
+  // Fallback localStorage uniquement si le store OS n'a pas pu être chargé
+  if (!loadedFromStore) {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          settings = { ...settings, ...parsed };
+        }
+      }
+    } catch {
+      // Ignore
     }
-  } catch {
-    // Ignore
+  } else {
+    // Garde le localStorage synchronisé avec le store officiel
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Si le modèle était sur 'auto-free', basculer sur le modèle par défaut
+  if (!settings.openrouterModel || settings.openrouterModel === 'auto-free') {
+    settings.openrouterModel = DEFAULT_AI_SETTINGS.openrouterModel;
   }
 
   // Migration automatique vers OpenRouter (Gemini direct n'est plus privilégié)
