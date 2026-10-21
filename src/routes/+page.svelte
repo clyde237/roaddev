@@ -5,6 +5,9 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ReadmeViewer from '$lib/components/ReadmeViewer.svelte';
   import RoadmapView from '$lib/components/RoadmapView.svelte';
+  import SettingsModal from '$lib/components/SettingsModal.svelte';
+  import ConflictModal from '$lib/components/ConflictModal.svelte';
+  import { AlertCircle, CheckCircle2 } from '@lucide/svelte';
   import type { ActiveTab, ProjectSummary } from '$lib/types/project';
   import type { RoadmapModel } from '$lib/types/roadmap';
   import { open } from '@tauri-apps/plugin-dialog';
@@ -25,6 +28,16 @@
     syncRoadmapToDisk,
     calculateRoadmapProgress,
   } from '$lib/services/roadmapSync';
+  import {
+    loadAISettings,
+    saveAISettings,
+    DEFAULT_AI_SETTINGS,
+    type AISettings,
+  } from '$lib/services/aiSettings';
+  import {
+    generateRoadmapFromReadme,
+    mergeRoadmaps,
+  } from '$lib/services/aiGenerator';
 
   // Svelte 5 Runes for reactive state
   let projects = $state<ProjectSummary[]>([]);
@@ -32,6 +45,13 @@
   let activeTab = $state<ActiveTab>('roadmap');
   let isGenerating = $state<boolean>(false);
   let isRefreshing = $state<boolean>(false);
+
+  // Modals & AI State
+  let aiSettings = $state<AISettings>(DEFAULT_AI_SETTINGS);
+  let isSettingsModalOpen = $state<boolean>(false);
+  let isConflictModalOpen = $state<boolean>(false);
+  let pendingGeneratedRoadmap = $state<RoadmapModel | null>(null);
+  let toastMessage = $state<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // README state
   let readmeData = $state<ReadmeDetectionResult>({
@@ -54,8 +74,18 @@
     projects.find((p) => p.id === activeProjectId) || null
   );
 
+  function showToast(text: string, type: 'success' | 'error' = 'success', duration = 3500) {
+    toastMessage = { type, text };
+    setTimeout(() => {
+      toastMessage = null;
+    }, duration);
+  }
+
   onMount(async () => {
-    // Charge les projets sauvegardés au démarrage
+    // 1. Charge les paramètres d'IA
+    aiSettings = await loadAISettings();
+
+    // 2. Charge les projets sauvegardés au démarrage
     const storedProjects = await loadRecentProjects();
     projects = storedProjects;
 
@@ -159,18 +189,95 @@
   }
 
   function handleOpenSettings() {
-    alert('Paramètres API (Sprint 4)');
+    isSettingsModalOpen = true;
+  }
+
+  async function handleSaveSettings(newSettings: AISettings) {
+    aiSettings = newSettings;
+    await saveAISettings(newSettings);
+    showToast('Paramètres d’IA enregistrés avec succès !');
   }
 
   function handleTabChange(tab: ActiveTab) {
     activeTab = tab;
   }
 
-  function handleGenerateAI() {
+  /**
+   * Pipeline de Génération par IA
+   */
+  async function handleGenerateAI() {
+    if (!activeProject) {
+      showToast('Veuillez ouvrir un projet pour lancer la génération.', 'error');
+      return;
+    }
+
+    // Vérification de la clé API
+    const hasKey =
+      aiSettings.provider === 'gemini' ? !!aiSettings.geminiKey : !!aiSettings.mistralKey;
+
+    if (!hasKey) {
+      isSettingsModalOpen = true;
+      showToast(
+        `Veuillez configurer votre clé API ${aiSettings.provider === 'gemini' ? 'Google AI Studio' : 'Mistral'}.`,
+        'error',
+        5000
+      );
+      return;
+    }
+
     isGenerating = true;
-    setTimeout(() => {
+    try {
+      const generated = await generateRoadmapFromReadme(
+        activeProject.name,
+        readmeData.content,
+        aiSettings
+      );
+
+      // Si le projet a déjà des tâches, afficher la modale de résolution de conflit
+      const hasExistingTasks =
+        roadmapData.phases.length > 0 &&
+        roadmapData.phases.some((phase) => phase.tasks.length > 0);
+
+      if (hasExistingTasks) {
+        pendingGeneratedRoadmap = generated;
+        isConflictModalOpen = true;
+      } else {
+        await handleUpdateRoadmap(generated);
+        activeTab = 'roadmap';
+        showToast('Roadmap générée avec succès par l’IA !');
+      }
+    } catch (err: any) {
+      console.error('Erreur génération IA:', err);
+      showToast(err.message || 'Erreur lors de la génération IA.', 'error', 6000);
+    } finally {
       isGenerating = false;
-    }, 1500);
+    }
+  }
+
+  async function handleOverwriteConflict() {
+    if (pendingGeneratedRoadmap) {
+      await handleUpdateRoadmap(pendingGeneratedRoadmap);
+      isConflictModalOpen = false;
+      pendingGeneratedRoadmap = null;
+      activeTab = 'roadmap';
+      showToast('Roadmap écrasée et mise à jour avec succès !');
+    }
+  }
+
+  async function handleMergeConflict() {
+    if (pendingGeneratedRoadmap) {
+      const merged = mergeRoadmaps(roadmapData, pendingGeneratedRoadmap);
+      await handleUpdateRoadmap(merged);
+      isConflictModalOpen = false;
+      pendingGeneratedRoadmap = null;
+      activeTab = 'roadmap';
+      showToast('Roadmap complétée avec succès !');
+    }
+  }
+
+  function handleCancelConflict() {
+    isConflictModalOpen = false;
+    pendingGeneratedRoadmap = null;
   }
 
   async function handleRefresh() {
@@ -178,6 +285,7 @@
     isRefreshing = true;
     try {
       await loadProjectData(activeProject);
+      showToast('Données synchronisées depuis le disque.');
     } finally {
       setTimeout(() => {
         isRefreshing = false;
@@ -195,6 +303,7 @@
     if (!activeProject) return;
     const created = await createDefaultReadme(activeProject.path, activeProject.name);
     readmeData = created;
+    showToast('Fichier README.md créé avec succès.');
   }
 
   /**
@@ -219,7 +328,23 @@
   }
 </script>
 
-<div class="flex h-full w-full overflow-hidden">
+<div class="flex h-full w-full overflow-hidden relative">
+  <!-- Toast Feedback Notification -->
+  {#if toastMessage}
+    <div
+      class="absolute top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border shadow-xl text-xs font-medium backdrop-blur-md transition-all {toastMessage.type === 'success'
+        ? 'bg-slate-900/90 border-emerald-500/30 text-emerald-300'
+        : 'bg-slate-900/90 border-red-500/30 text-red-300'}"
+    >
+      {#if toastMessage.type === 'success'}
+        <CheckCircle2 class="w-4 h-4 text-emerald-400 shrink-0" />
+      {:else}
+        <AlertCircle class="w-4 h-4 text-red-400 shrink-0" />
+      {/if}
+      <span>{toastMessage.text}</span>
+    </div>
+  {/if}
+
   <!-- Zone 1: Sidebar Gauche (260px fixe) -->
   <Sidebar
     {projects}
@@ -269,4 +394,22 @@
       {/if}
     </main>
   </div>
+
+  <!-- Modal des Paramètres d'IA -->
+  <SettingsModal
+    settings={aiSettings}
+    isOpen={isSettingsModalOpen}
+    onClose={() => (isSettingsModalOpen = false)}
+    onSave={handleSaveSettings}
+  />
+
+  <!-- Modal de Résolution de Conflit -->
+  <ConflictModal
+    isOpen={isConflictModalOpen}
+    projectName={activeProject?.name || ''}
+    existingTasksCount={activeProject?.totalTasks || 0}
+    onOverwrite={handleOverwriteConflict}
+    onMerge={handleMergeConflict}
+    onCancel={handleCancelConflict}
+  />
 </div>

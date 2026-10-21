@@ -1,0 +1,89 @@
+import { Store } from '@tauri-apps/plugin-store';
+
+export type AIProvider = 'gemini' | 'mistral';
+
+export interface AISettings {
+  provider: AIProvider;
+  geminiKey: string;
+  geminiModel: string;
+  mistralKey: string;
+  mistralModel: string;
+}
+
+const SETTINGS_FILENAME = 'roaddev-settings.json';
+const SETTINGS_KEY = 'ai_settings';
+
+export const DEFAULT_AI_SETTINGS: AISettings = {
+  provider: 'gemini',
+  geminiKey: '',
+  geminiModel: 'gemini-2.0-flash',
+  mistralKey: '',
+  mistralModel: 'mistral-large-latest',
+};
+
+let storeInstance: Store | null = null;
+
+async function getSettingsStore(): Promise<Store | null> {
+  if (storeInstance) {
+    return storeInstance;
+  }
+
+  try {
+    storeInstance = await Store.load(SETTINGS_FILENAME);
+    return storeInstance;
+  } catch (err) {
+    console.warn('Tauri Store unavailable for settings, using localStorage fallback:', err);
+    return null;
+  }
+}
+
+/**
+ * Charge les paramètres d'IA depuis le store sécurisé de l'OS
+ */
+export async function loadAISettings(): Promise<AISettings> {
+  try {
+    const store = await getSettingsStore();
+    if (store) {
+      const saved = await store.get<AISettings>(SETTINGS_KEY);
+      if (saved) {
+        return { ...DEFAULT_AI_SETTINGS, ...saved };
+      }
+    }
+  } catch (err) {
+    console.error('Erreur chargement paramètres IA depuis le store:', err);
+  }
+
+  // Fallback localStorage
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      return { ...DEFAULT_AI_SETTINGS, ...JSON.parse(raw) };
+    }
+  } catch {
+    // Ignore
+  }
+
+  return { ...DEFAULT_AI_SETTINGS };
+}
+
+/**
+ * Enregistre les paramètres d'IA dans le store sécurisé
+ */
+export async function saveAISettings(settings: AISettings): Promise<void> {
+  try {
+    const store = await getSettingsStore();
+    if (store) {
+      await store.set(SETTINGS_KEY, settings);
+      await store.save();
+    }
+  } catch (err) {
+    console.error('Erreur sauvegarde paramètres IA dans le store:', err);
+  }
+
+  // Fallback localStorage
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.error('Erreur sauvegarde paramètres IA dans localStorage:', err);
+  }
+}

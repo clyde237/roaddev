@@ -1,0 +1,271 @@
+<script lang="ts">
+  import { X, Key, Check, AlertCircle, Eye, EyeOff, Sparkles, Loader2 } from '@lucide/svelte';
+  import type { AISettings } from '$lib/services/aiSettings';
+  import { testAIConnection } from '$lib/services/aiGenerator';
+
+  interface Props {
+    settings: AISettings;
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (newSettings: AISettings) => Promise<void>;
+  }
+
+  let { settings, isOpen, onClose, onSave }: Props = $props();
+
+  let localSettings = $state<AISettings>({
+    provider: 'gemini',
+    geminiKey: '',
+    geminiModel: 'gemini-2.0-flash',
+    mistralKey: '',
+    mistralModel: 'mistral-large-latest',
+  });
+  let showGeminiKey = $state<boolean>(false);
+  let showMistralKey = $state<boolean>(false);
+  let isTesting = $state<boolean>(false);
+  let testResult = $state<{ success: boolean; message: string } | null>(null);
+  let isSaving = $state<boolean>(false);
+
+  $effect(() => {
+    localSettings = { ...settings };
+    testResult = null;
+  });
+
+  async function handleTest() {
+    isTesting = true;
+    testResult = null;
+    try {
+      const res = await testAIConnection(localSettings);
+      testResult = res;
+    } finally {
+      isTesting = false;
+    }
+  }
+
+  async function handleSave() {
+    isSaving = true;
+    try {
+      await onSave(localSettings);
+      onClose();
+    } finally {
+      isSaving = false;
+    }
+  }
+</script>
+
+{#if isOpen}
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 select-none"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div
+      class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+    >
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Key class="w-4 h-4" />
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Paramètres des API IA</h3>
+            <p class="text-[11px] text-slate-400">Vos clés sont isolées localement sur votre machine</p>
+          </div>
+        </div>
+        <button
+          onclick={onClose}
+          class="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+        >
+          <X class="w-4 h-4" />
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+        <!-- Provider Selector -->
+        <div>
+          <span class="block text-xs font-semibold text-slate-300 mb-2">Fournisseur d'IA par défaut</span>
+          <div class="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onclick={() => (localSettings.provider = 'gemini')}
+              class="flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-medium transition-all cursor-pointer {localSettings.provider === 'gemini'
+                ? 'bg-blue-600/15 border-blue-500 text-white shadow-sm shadow-blue-500/10'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'}"
+            >
+              <Sparkles class="w-4 h-4 text-blue-400" />
+              <span>Google AI Studio</span>
+            </button>
+
+            <button
+              type="button"
+              onclick={() => (localSettings.provider = 'mistral')}
+              class="flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-medium transition-all cursor-pointer {localSettings.provider === 'mistral'
+                ? 'bg-orange-600/15 border-orange-500 text-white shadow-sm shadow-orange-500/10'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'}"
+            >
+              <span class="w-4 h-4 font-bold text-orange-400 flex items-center justify-center">M</span>
+              <span>Mistral AI</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Google AI Studio Configuration -->
+        {#if localSettings.provider === 'gemini'}
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="gemini-key" class="text-xs font-semibold text-slate-300">
+                  Clé API Google AI Studio (Gemini)
+                </label>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  class="text-[11px] text-blue-400 hover:underline"
+                >
+                  Obtenir une clé gratuite
+                </a>
+              </div>
+              <div class="relative">
+                <input
+                  id="gemini-key"
+                  type={showGeminiKey ? 'text' : 'password'}
+                  bind:value={localSettings.geminiKey}
+                  placeholder="Collez votre clé API Gemini ici..."
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono"
+                />
+                <button
+                  type="button"
+                  onclick={() => (showGeminiKey = !showGeminiKey)}
+                  class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                >
+                  {#if showGeminiKey}
+                    <EyeOff class="w-3.5 h-3.5" />
+                  {:else}
+                    <Eye class="w-3.5 h-3.5" />
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label for="gemini-model" class="block text-xs font-semibold text-slate-300 mb-1.5">Modèle Gemini</label>
+              <select
+                id="gemini-model"
+                bind:value={localSettings.geminiModel}
+                class="w-full bg-slate-900 text-xs text-white px-3 py-2 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="gemini-2.0-flash">gemini-2.0-flash (Recommandé, ultra-rapide)</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash (Standard)</option>
+                <option value="gemini-1.5-pro">gemini-1.5-pro (Raisonnement avancé)</option>
+              </select>
+            </div>
+          </div>
+        {:else}
+          <!-- Mistral Configuration -->
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="mistral-key" class="text-xs font-semibold text-slate-300">
+                  Clé API Mistral AI
+                </label>
+                <a
+                  href="https://console.mistral.ai/api-keys/"
+                  target="_blank"
+                  class="text-[11px] text-orange-400 hover:underline"
+                >
+                  Console Mistral
+                </a>
+              </div>
+              <div class="relative">
+                <input
+                  id="mistral-key"
+                  type={showMistralKey ? 'text' : 'password'}
+                  bind:value={localSettings.mistralKey}
+                  placeholder="Collez votre clé API Mistral..."
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-orange-500 focus:outline-none font-mono"
+                />
+                <button
+                  type="button"
+                  onclick={() => (showMistralKey = !showMistralKey)}
+                  class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                >
+                  {#if showMistralKey}
+                    <EyeOff class="w-3.5 h-3.5" />
+                  {:else}
+                    <Eye class="w-3.5 h-3.5" />
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label for="mistral-model" class="block text-xs font-semibold text-slate-300 mb-1.5">Modèle Mistral</label>
+              <select
+                id="mistral-model"
+                bind:value={localSettings.mistralModel}
+                class="w-full bg-slate-900 text-xs text-white px-3 py-2 rounded-lg border border-slate-800 focus:border-orange-500 focus:outline-none"
+              >
+                <option value="mistral-large-latest">mistral-large-latest (Recommandé)</option>
+                <option value="mistral-small-latest">mistral-small-latest</option>
+              </select>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Test Connection Feedback -->
+        {#if testResult}
+          <div
+            class="p-3 rounded-xl flex items-start gap-2.5 text-xs {testResult.success
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'}"
+          >
+            {#if testResult.success}
+              <Check class="w-4 h-4 shrink-0 mt-0.5" />
+            {:else}
+              <AlertCircle class="w-4 h-4 shrink-0 mt-0.5" />
+            {/if}
+            <p>{testResult.message}</p>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="px-6 py-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between">
+        <button
+          type="button"
+          onclick={handleTest}
+          disabled={isTesting || (localSettings.provider === 'gemini' ? !localSettings.geminiKey : !localSettings.mistralKey)}
+          class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs font-medium rounded-xl transition-all cursor-pointer"
+        >
+          {#if isTesting}
+            <Loader2 class="w-3.5 h-3.5 animate-spin" />
+            <span>Test en cours...</span>
+          {:else}
+            <Sparkles class="w-3.5 h-3.5" />
+            <span>Tester la connexion</span>
+          {/if}
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick={onClose}
+            class="px-3.5 py-2 text-slate-400 hover:text-slate-200 text-xs font-medium rounded-xl transition-colors cursor-pointer"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onclick={handleSave}
+            disabled={isSaving}
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium rounded-xl shadow-md transition-all cursor-pointer"
+          >
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
