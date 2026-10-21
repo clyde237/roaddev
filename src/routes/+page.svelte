@@ -188,7 +188,8 @@
     }
   }
 
-  function handleOpenSettings() {
+  async function handleOpenSettings() {
+    aiSettings = await loadAISettings();
     isSettingsModalOpen = true;
   }
 

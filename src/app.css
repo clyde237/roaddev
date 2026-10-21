@@ -6,7 +6,12 @@
   }
   
   body {
-    @apply bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden select-none;
+    @apply bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden;
+  }
+
+  input, textarea, select, [contenteditable="true"] {
+    user-select: text !important;
+    -webkit-user-select: text !important;
   }
 }
 

@@ -10,6 +10,7 @@
     Loader2,
     Globe,
     Cpu,
+    ClipboardPaste,
   } from '@lucide/svelte';
   import type { AISettings } from '$lib/services/aiSettings';
   import { testAIConnection } from '$lib/services/aiGenerator';
@@ -45,12 +46,28 @@
   let isSaving = $state<boolean>(false);
 
   $effect(() => {
-    localSettings = { ...settings };
-    if (!localSettings.openrouterModel || localSettings.openrouterModel === 'auto-free') {
-      localSettings.openrouterModel = RECOMMENDED_NEMOTRON_CHAT;
+    if (isOpen) {
+      localSettings = { ...settings };
+      if (!localSettings.openrouterModel || localSettings.openrouterModel === 'auto-free') {
+        localSettings.openrouterModel = RECOMMENDED_NEMOTRON_CHAT;
+      }
+      testResult = null;
     }
-    testResult = null;
   });
+
+  async function pasteToKey(provider: 'openrouter' | 'gemini' | 'mistral') {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim().length > 0) {
+        const clean = text.trim();
+        if (provider === 'openrouter') localSettings.openrouterKey = clean;
+        else if (provider === 'gemini') localSettings.geminiKey = clean;
+        else if (provider === 'mistral') localSettings.mistralKey = clean;
+      }
+    } catch (err) {
+      console.warn('Impossible de lire le presse-papier:', err);
+    }
+  }
 
   async function handleTest() {
     isTesting = true;
@@ -94,12 +111,12 @@
 {#if isOpen}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
     role="dialog"
     aria-modal="true"
   >
     <div
-      class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col select-text"
     >
       <!-- Header -->
       <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
@@ -197,25 +214,44 @@
                   </a>
                 {/if}
               </div>
-              <div class="relative">
+              <div class="relative flex items-center">
                 <input
                   id="openrouter-key"
                   type={showOpenRouterKey ? 'text' : 'password'}
                   bind:value={localSettings.openrouterKey}
                   placeholder="Collez votre clé API (sk-or-v1-...)"
-                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono"
+                  onpaste={(e) => {
+                    const text = e.clipboardData?.getData('text');
+                    if (text) {
+                      e.preventDefault();
+                      localSettings.openrouterKey = text.trim();
+                    }
+                  }}
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-24 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono select-text"
                 />
-                <button
-                  type="button"
-                  onclick={() => (showOpenRouterKey = !showOpenRouterKey)}
-                  class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
-                >
-                  {#if showOpenRouterKey}
-                    <EyeOff class="w-3.5 h-3.5" />
-                  {:else}
-                    <Eye class="w-3.5 h-3.5" />
-                  {/if}
-                </button>
+                <div class="absolute right-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onclick={() => pasteToKey('openrouter')}
+                    class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 hover:text-white rounded border border-slate-700 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                    title="Coller depuis le presse-papier"
+                  >
+                    <ClipboardPaste class="w-3 h-3 text-blue-400" />
+                    <span>Coller</span>
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (showOpenRouterKey = !showOpenRouterKey)}
+                    class="p-1 text-slate-500 hover:text-slate-300 cursor-pointer"
+                    title={showOpenRouterKey ? 'Masquer' : 'Afficher'}
+                  >
+                    {#if showOpenRouterKey}
+                      <EyeOff class="w-3.5 h-3.5" />
+                    {:else}
+                      <Eye class="w-3.5 h-3.5" />
+                    {/if}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -276,25 +312,44 @@
                   Console Google AI Studio
                 </a>
               </div>
-              <div class="relative">
+              <div class="relative flex items-center">
                 <input
                   id="gemini-key"
                   type={showGeminiKey ? 'text' : 'password'}
                   bind:value={localSettings.geminiKey}
                   placeholder="Collez votre clé API Gemini ici..."
-                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono"
+                  onpaste={(e) => {
+                    const text = e.clipboardData?.getData('text');
+                    if (text) {
+                      e.preventDefault();
+                      localSettings.geminiKey = text.trim();
+                    }
+                  }}
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-24 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono select-text"
                 />
-                <button
-                  type="button"
-                  onclick={() => (showGeminiKey = !showGeminiKey)}
-                  class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
-                >
-                  {#if showGeminiKey}
-                    <EyeOff class="w-3.5 h-3.5" />
-                  {:else}
-                    <Eye class="w-3.5 h-3.5" />
-                  {/if}
-                </button>
+                <div class="absolute right-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onclick={() => pasteToKey('gemini')}
+                    class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 hover:text-white rounded border border-slate-700 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                    title="Coller depuis le presse-papier"
+                  >
+                    <ClipboardPaste class="w-3 h-3 text-blue-400" />
+                    <span>Coller</span>
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (showGeminiKey = !showGeminiKey)}
+                    class="p-1 text-slate-500 hover:text-slate-300 cursor-pointer"
+                    title={showGeminiKey ? 'Masquer' : 'Afficher'}
+                  >
+                    {#if showGeminiKey}
+                      <EyeOff class="w-3.5 h-3.5" />
+                    {:else}
+                      <Eye class="w-3.5 h-3.5" />
+                    {/if}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -327,25 +382,44 @@
                   Console Mistral
                 </a>
               </div>
-              <div class="relative">
+              <div class="relative flex items-center">
                 <input
                   id="mistral-key"
                   type={showMistralKey ? 'text' : 'password'}
                   bind:value={localSettings.mistralKey}
                   placeholder="Collez votre clé API Mistral..."
-                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-orange-500 focus:outline-none font-mono"
+                  onpaste={(e) => {
+                    const text = e.clipboardData?.getData('text');
+                    if (text) {
+                      e.preventDefault();
+                      localSettings.mistralKey = text.trim();
+                    }
+                  }}
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-24 rounded-lg border border-slate-800 focus:border-orange-500 focus:outline-none font-mono select-text"
                 />
-                <button
-                  type="button"
-                  onclick={() => (showMistralKey = !showMistralKey)}
-                  class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
-                >
-                  {#if showMistralKey}
-                    <EyeOff class="w-3.5 h-3.5" />
-                  {:else}
-                    <Eye class="w-3.5 h-3.5" />
-                  {/if}
-                </button>
+                <div class="absolute right-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onclick={() => pasteToKey('mistral')}
+                    class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 hover:text-white rounded border border-slate-700 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                    title="Coller depuis le presse-papier"
+                  >
+                    <ClipboardPaste class="w-3 h-3 text-orange-400" />
+                    <span>Coller</span>
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (showMistralKey = !showMistralKey)}
+                    class="p-1 text-slate-500 hover:text-slate-300 cursor-pointer"
+                    title={showMistralKey ? 'Masquer' : 'Afficher'}
+                  >
+                    {#if showMistralKey}
+                      <EyeOff class="w-3.5 h-3.5" />
+                    {:else}
+                      <Eye class="w-3.5 h-3.5" />
+                    {/if}
+                  </button>
+                </div>
               </div>
             </div>
 
