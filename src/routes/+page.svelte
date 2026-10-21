@@ -325,9 +325,19 @@
   async function handleUpdateRoadmap(updated: RoadmapModel) {
     roadmapData = updated;
 
-    if (activeProject && roadmapFullPath) {
-      // 1. Écriture atomique sur le disque
-      await syncRoadmapToDisk(roadmapFullPath, updated);
+    if (activeProject) {
+      if (!roadmapFullPath) {
+        roadmapFullPath = `${activeProject.path.replace(/\/+$/, '')}/ROADMAP.md`;
+      }
+
+      try {
+        // 1. Écriture atomique sur le disque
+        await syncRoadmapToDisk(roadmapFullPath, updated);
+      } catch (err: any) {
+        console.error('Erreur écriture atomique du ROADMAP sur le disque:', err);
+        showToast(`Erreur d'enregistrement dans ${roadmapFullPath} : ${err?.message || err}`, 'error', 6000);
+        throw err;
+      }
 
       // 2. Recalcul immédiat des statistiques
       const stats = calculateRoadmapProgress(updated);
@@ -415,6 +425,7 @@
     <Header
       project={activeProject}
       {activeTab}
+      roadmapPath={roadmapFullPath}
       {isGenerating}
       {isRefreshing}
       onTabChange={handleTabChange}
@@ -431,6 +442,7 @@
         <RoadmapView
           roadmap={roadmapData}
           projectName={activeProject.name}
+          roadmapPath={roadmapFullPath}
           onUpdateRoadmap={handleUpdateRoadmap}
           onTriggerAIGenerate={handleGenerateAI}
         />

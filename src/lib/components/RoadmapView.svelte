@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Plus, Sparkles, ListChecks, CheckCircle2, AlertCircle } from '@lucide/svelte';
+  import { Plus, Sparkles, ListChecks, CheckCircle2, AlertCircle, FileText, Copy, Check } from '@lucide/svelte';
   import PhaseCard from '$lib/components/PhaseCard.svelte';
   import type { RoadmapModel } from '$lib/types/roadmap';
   import { calculateRoadmapProgress } from '$lib/services/roadmapSync';
@@ -7,15 +7,36 @@
   interface Props {
     roadmap: RoadmapModel;
     projectName: string;
+    roadmapPath?: string;
     onUpdateRoadmap: (updated: RoadmapModel) => Promise<void>;
     onTriggerAIGenerate: () => void;
   }
 
-  let { roadmap, projectName, onUpdateRoadmap, onTriggerAIGenerate }: Props = $props();
+  let { roadmap, projectName, roadmapPath = '', onUpdateRoadmap, onTriggerAIGenerate }: Props = $props();
 
   let stats = $derived(calculateRoadmapProgress(roadmap));
   let isAddingPhase = $state<boolean>(false);
   let newPhaseTitle = $state<string>('');
+  let copiedPath = $state<boolean>(false);
+
+  async function copyRoadmapPath() {
+    if (!roadmapPath) return;
+    try {
+      const { writeText } = await import('@tauri-apps/plugin-clipboard-manager');
+      await writeText(roadmapPath);
+      copiedPath = true;
+    } catch {
+      try {
+        await navigator.clipboard.writeText(roadmapPath);
+        copiedPath = true;
+      } catch (err) {
+        console.warn('Erreur copie presse-papier:', err);
+      }
+    }
+    setTimeout(() => {
+      copiedPath = false;
+    }, 2000);
+  }
 
   async function handleToggleTask(phaseId: string, taskId: string) {
     const updatedPhases = roadmap.phases.map((phase) => {
@@ -140,9 +161,33 @@
           <span>Roadmap</span>
           <span class="text-slate-400 font-normal">— {projectName}</span>
         </h2>
-        <p class="text-xs text-slate-400 mt-1">
-          Synchronisation bidirectionnelle native avec <code class="text-blue-400 font-mono text-[11px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">ROADMAP.md</code>
-        </p>
+        {#if roadmapPath}
+          <div class="flex items-center gap-2 mt-2 flex-wrap">
+            <span class="text-xs text-slate-400">Emplacement :</span>
+            <span class="text-xs font-mono text-emerald-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 flex items-center gap-1.5 select-text">
+              <FileText class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span class="truncate max-w-md">{roadmapPath}</span>
+            </span>
+            <button
+              type="button"
+              onclick={copyRoadmapPath}
+              class="p-1 px-2 text-[11px] bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition-colors cursor-pointer flex items-center gap-1"
+              title="Copier le chemin absolu du fichier ROADMAP.md"
+            >
+              {#if copiedPath}
+                <Check class="w-3 h-3 text-emerald-400" />
+                <span class="text-emerald-400 font-medium">Copié !</span>
+              {:else}
+                <Copy class="w-3 h-3 text-slate-400" />
+                <span>Copier le chemin</span>
+              {/if}
+            </button>
+          </div>
+        {:else}
+          <p class="text-xs text-slate-400 mt-1">
+            Synchronisation bidirectionnelle native avec <code class="text-blue-400 font-mono text-[11px] bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">ROADMAP.md</code>
+          </p>
+        {/if}
       </div>
 
       <!-- Actions -->

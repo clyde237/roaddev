@@ -5,6 +5,7 @@
   interface Props {
     project: ProjectSummary | null;
     activeTab: ActiveTab;
+    roadmapPath?: string;
     isGenerating?: boolean;
     isRefreshing?: boolean;
     onTabChange: (tab: ActiveTab) => void;
@@ -15,6 +16,7 @@
   let {
     project,
     activeTab,
+    roadmapPath = '',
     isGenerating = false,
     isRefreshing = false,
     onTabChange,
@@ -37,7 +39,13 @@
             {project.progressPercent}% ({project.completedTasks}/{project.totalTasks} tâches)
           </span>
         </div>
-        <p class="text-[11px] text-slate-400 font-mono truncate max-w-md">{project.path}</p>
+        <p class="text-[11px] text-slate-400 font-mono truncate max-w-md" title={activeTab === 'roadmap' && roadmapPath ? roadmapPath : project.path}>
+          {#if activeTab === 'roadmap' && roadmapPath}
+            <span class="text-emerald-400 font-medium">ROADMAP:</span> {roadmapPath}
+          {:else}
+            {project.path}
+          {/if}
+        </p>
       </div>
     </div>
 
