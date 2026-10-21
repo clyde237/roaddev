@@ -10,20 +10,12 @@
     "store:default",
     "fs:default",
     {
-      "identifier": "fs:allow-read-text-file",
-      "allow": ["$HOME/**", "**/*"]
-    },
-    {
-      "identifier": "fs:allow-write-text-file",
-      "allow": ["$HOME/**", "**/*"]
-    },
-    {
-      "identifier": "fs:allow-exists",
-      "allow": ["$HOME/**", "**/*"]
-    },
-    {
-      "identifier": "fs:allow-read-dir",
-      "allow": ["$HOME/**", "**/*"]
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME" },
+        { "path": "$HOME/**/*" },
+        { "path": "**/*" }
+      ]
     }
   ]
 }
