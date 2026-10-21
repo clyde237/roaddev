@@ -149,4 +149,16 @@ describe('Moteur Markdown de Roadmap', () => {
     // La phase 2 doit avoir été ajoutée
     expect(merged.phases[1].title).toBe('Phase 2 : Déploiement');
   });
+
+  it('doit exposer les pools de modèles gratuits OpenRouter et la configuration par défaut', async () => {
+    const { DEFAULT_AI_SETTINGS } = await import('../aiSettings');
+    const { PRESET_FREE_MODELS, FALLBACK_FREE_POOL_PRIMARY } = await import('../openrouterService');
+
+    expect(DEFAULT_AI_SETTINGS.provider).toBe('openrouter');
+    expect(DEFAULT_AI_SETTINGS.openrouterModel).toBe('auto-free');
+    expect(PRESET_FREE_MODELS.length).toBeGreaterThan(0);
+    expect(FALLBACK_FREE_POOL_PRIMARY.length).toBe(3);
+    expect(FALLBACK_FREE_POOL_PRIMARY[0]).toContain(':free');
+  });
 });
+

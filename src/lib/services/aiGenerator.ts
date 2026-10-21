@@ -1,5 +1,6 @@
 import type { AISettings } from '$lib/services/aiSettings';
 import type { RoadmapModel, PhaseSection, TaskItem } from '$lib/types/roadmap';
+import { callOpenRouter } from '$lib/services/openrouterService';
 
 export interface GeneratedRoadmapJSON {
   project_summary?: string;
@@ -153,7 +154,25 @@ export async function testAIConnection(
   settings: AISettings
 ): Promise<{ success: boolean; message: string }> {
   try {
-    if (settings.provider === 'gemini') {
+    if (settings.provider === 'openrouter') {
+      if (!settings.openrouterKey) {
+        return { success: false, message: 'La clé API OpenRouter est manquante.' };
+      }
+      await callOpenRouter(
+        'Réponds UNIQUEMENT par cet objet JSON valide : {"status": "ok"}',
+        settings.openrouterKey,
+        settings.openrouterModel,
+        'Tu es un assistant JSON. Réponds en JSON valide sans fioritures.'
+      );
+      const modelLabel =
+        settings.openrouterModel === 'auto-free'
+          ? 'Pool de modèles gratuits actif'
+          : settings.openrouterModel;
+      return {
+        success: true,
+        message: `Connexion réussie avec OpenRouter (${modelLabel}) !`,
+      };
+    } else if (settings.provider === 'gemini') {
       if (!settings.geminiKey) {
         return { success: false, message: 'La clé API Google AI Studio est manquante.' };
       }
@@ -199,7 +218,19 @@ Rappel : Génère une roadmap complète et actionnable sous forme de phases et d
 
   let rawJson: string;
 
-  if (settings.provider === 'gemini') {
+  if (settings.provider === 'openrouter') {
+    if (!settings.openrouterKey) {
+      throw new Error(
+        'Clé API OpenRouter non configurée. Cliquez sur Paramètres API pour la renseigner.'
+      );
+    }
+    rawJson = await callOpenRouter(
+      userPrompt,
+      settings.openrouterKey,
+      settings.openrouterModel,
+      SYSTEM_PROMPT
+    );
+  } else if (settings.provider === 'gemini') {
     if (!settings.geminiKey) {
       throw new Error(
         'Clé API Google AI Studio non configurée. Cliquez sur Paramètres API pour la renseigner.'

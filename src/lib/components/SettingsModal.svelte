@@ -1,7 +1,24 @@
 <script lang="ts">
-  import { X, Key, Check, AlertCircle, Eye, EyeOff, Sparkles, Loader2 } from '@lucide/svelte';
+  import {
+    X,
+    Key,
+    Check,
+    AlertCircle,
+    Eye,
+    EyeOff,
+    Sparkles,
+    Loader2,
+    Globe,
+    RefreshCw,
+    Zap,
+  } from '@lucide/svelte';
   import type { AISettings } from '$lib/services/aiSettings';
   import { testAIConnection } from '$lib/services/aiGenerator';
+  import {
+    PRESET_FREE_MODELS,
+    fetchFreeModels,
+    type OpenRouterModelInfo,
+  } from '$lib/services/openrouterService';
 
   interface Props {
     settings: AISettings;
@@ -13,22 +30,44 @@
   let { settings, isOpen, onClose, onSave }: Props = $props();
 
   let localSettings = $state<AISettings>({
-    provider: 'gemini',
+    provider: 'openrouter',
+    openrouterKey: '',
+    openrouterModel: 'auto-free',
     geminiKey: '',
     geminiModel: 'gemini-2.0-flash',
     mistralKey: '',
     mistralModel: 'mistral-large-latest',
   });
+
+  let showOpenRouterKey = $state<boolean>(false);
   let showGeminiKey = $state<boolean>(false);
   let showMistralKey = $state<boolean>(false);
   let isTesting = $state<boolean>(false);
   let testResult = $state<{ success: boolean; message: string } | null>(null);
   let isSaving = $state<boolean>(false);
 
+  let freeModels = $state<OpenRouterModelInfo[]>(PRESET_FREE_MODELS);
+  let isLoadingModels = $state<boolean>(false);
+
   $effect(() => {
     localSettings = { ...settings };
     testResult = null;
+    if (isOpen) {
+      loadOnlineModels();
+    }
   });
+
+  async function loadOnlineModels() {
+    isLoadingModels = true;
+    try {
+      const models = await fetchFreeModels(localSettings.openrouterKey);
+      if (models && models.length > 0) {
+        freeModels = models;
+      }
+    } finally {
+      isLoadingModels = false;
+    }
+  }
 
   async function handleTest() {
     isTesting = true;
@@ -50,17 +89,27 @@
       isSaving = false;
     }
   }
+
+  function isKeyProvided(): boolean {
+    if (localSettings.provider === 'openrouter') {
+      return Boolean(localSettings.openrouterKey && localSettings.openrouterKey.trim().length > 0);
+    }
+    if (localSettings.provider === 'gemini') {
+      return Boolean(localSettings.geminiKey && localSettings.geminiKey.trim().length > 0);
+    }
+    return Boolean(localSettings.mistralKey && localSettings.mistralKey.trim().length > 0);
+  }
 </script>
 
 {#if isOpen}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 select-none"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none"
     role="dialog"
     aria-modal="true"
   >
     <div
-      class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
     >
       <!-- Header -->
       <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
@@ -83,36 +132,140 @@
 
       <!-- Body -->
       <div class="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-        <!-- Provider Selector -->
+        <!-- Provider Selector (3 options) -->
         <div>
-          <span class="block text-xs font-semibold text-slate-300 mb-2">Fournisseur d'IA par défaut</span>
-          <div class="grid grid-cols-2 gap-3">
+          <span class="block text-xs font-semibold text-slate-300 mb-2">Fournisseur d'IA actif</span>
+          <div class="grid grid-cols-3 gap-2.5">
+            <!-- OpenRouter -->
             <button
               type="button"
-              onclick={() => (localSettings.provider = 'gemini')}
-              class="flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-medium transition-all cursor-pointer {localSettings.provider === 'gemini'
+              onclick={() => (localSettings.provider = 'openrouter')}
+              class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-center transition-all cursor-pointer {localSettings.provider === 'openrouter'
                 ? 'bg-blue-600/15 border-blue-500 text-white shadow-sm shadow-blue-500/10'
                 : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'}"
             >
-              <Sparkles class="w-4 h-4 text-blue-400" />
-              <span>Google AI Studio</span>
+              <div class="flex items-center gap-1.5">
+                <Globe class="w-4 h-4 text-blue-400" />
+                <span class="text-xs font-semibold">OpenRouter</span>
+              </div>
+              <span class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                100% Gratuit
+              </span>
             </button>
 
+            <!-- Google AI Studio -->
+            <button
+              type="button"
+              onclick={() => (localSettings.provider = 'gemini')}
+              class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-center transition-all cursor-pointer {localSettings.provider === 'gemini'
+                ? 'bg-purple-600/15 border-purple-500 text-white shadow-sm shadow-purple-500/10'
+                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'}"
+            >
+              <div class="flex items-center gap-1.5">
+                <Sparkles class="w-4 h-4 text-purple-400" />
+                <span class="text-xs font-semibold">Google Studio</span>
+              </div>
+              <span class="text-[10px] text-slate-400">Gemini direct</span>
+            </button>
+
+            <!-- Mistral AI -->
             <button
               type="button"
               onclick={() => (localSettings.provider = 'mistral')}
-              class="flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-medium transition-all cursor-pointer {localSettings.provider === 'mistral'
+              class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border text-center transition-all cursor-pointer {localSettings.provider === 'mistral'
                 ? 'bg-orange-600/15 border-orange-500 text-white shadow-sm shadow-orange-500/10'
                 : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'}"
             >
-              <span class="w-4 h-4 font-bold text-orange-400 flex items-center justify-center">M</span>
-              <span>Mistral AI</span>
+              <div class="flex items-center gap-1.5">
+                <span class="w-4 h-4 font-bold text-orange-400 flex items-center justify-center">M</span>
+                <span class="text-xs font-semibold">Mistral AI</span>
+              </div>
+              <span class="text-[10px] text-slate-400">Mistral Large</span>
             </button>
           </div>
         </div>
 
-        <!-- Google AI Studio Configuration -->
-        {#if localSettings.provider === 'gemini'}
+        <!-- OpenRouter Configuration -->
+        {#if localSettings.provider === 'openrouter'}
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="openrouter-key" class="text-xs font-semibold text-slate-300">
+                  Clé API OpenRouter
+                </label>
+                <a
+                  href="https://openrouter.ai/keys"
+                  target="_blank"
+                  class="text-[11px] text-blue-400 hover:underline"
+                >
+                  Obtenir une clé sur OpenRouter
+                </a>
+              </div>
+              <div class="relative">
+                <input
+                  id="openrouter-key"
+                  type={showOpenRouterKey ? 'text' : 'password'}
+                  bind:value={localSettings.openrouterKey}
+                  placeholder="sk-or-v1-..."
+                  class="w-full bg-slate-900 text-xs text-white px-3 py-2 pr-9 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none font-mono"
+                />
+                <button
+                  type="button"
+                  onclick={() => (showOpenRouterKey = !showOpenRouterKey)}
+                  class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                >
+                  {#if showOpenRouterKey}
+                    <EyeOff class="w-3.5 h-3.5" />
+                  {:else}
+                    <Eye class="w-3.5 h-3.5" />
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="openrouter-model" class="block text-xs font-semibold text-slate-300">
+                  Sélection du modèle (Gratuit)
+                </label>
+                <button
+                  type="button"
+                  onclick={loadOnlineModels}
+                  disabled={isLoadingModels}
+                  class="flex items-center gap-1 text-[11px] text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+                  title="Actualiser la liste des modèles gratuits en direct"
+                >
+                  <RefreshCw class="w-3 h-3 {isLoadingModels ? 'animate-spin text-blue-400' : ''}" />
+                  <span>Actualiser</span>
+                </button>
+              </div>
+
+              <select
+                id="openrouter-model"
+                bind:value={localSettings.openrouterModel}
+                class="w-full bg-slate-900 text-xs text-white px-3 py-2 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="auto-free">
+                  ⚡ Sélection automatique (Meilleur modèle gratuit avec basculement automatique)
+                </option>
+                {#each freeModels as model (model.id)}
+                  <option value={model.id}>
+                    {model.name}
+                  </option>
+                {/each}
+              </select>
+            </div>
+
+            <!-- Free badge notice -->
+            <div class="flex items-start gap-2 p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 text-[11px] text-slate-400">
+              <Zap class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Tolérance aux pannes intégrée :</strong> En mode automatique, si un modèle amont gratuit rencontre un quota temporaire (429), RoadDev bascule instantanément sur le modèle gratuit suivant du pool.
+              </span>
+            </div>
+          </div>
+        {:else if localSettings.provider === 'gemini'}
+          <!-- Google AI Studio Configuration -->
           <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-4">
             <div>
               <div class="flex items-center justify-between mb-1.5">
@@ -124,7 +277,7 @@
                   target="_blank"
                   class="text-[11px] text-blue-400 hover:underline"
                 >
-                  Obtenir une clé gratuite
+                  Console Google AI Studio
                 </a>
               </div>
               <div class="relative">
@@ -156,9 +309,9 @@
                 bind:value={localSettings.geminiModel}
                 class="w-full bg-slate-900 text-xs text-white px-3 py-2 rounded-lg border border-slate-800 focus:border-blue-500 focus:outline-none"
               >
-                <option value="gemini-2.0-flash">gemini-2.0-flash (Recommandé, ultra-rapide)</option>
-                <option value="gemini-1.5-flash">gemini-1.5-flash (Standard)</option>
-                <option value="gemini-1.5-pro">gemini-1.5-pro (Raisonnement avancé)</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                <option value="gemini-1.5-pro">gemini-1.5-pro</option>
               </select>
             </div>
           </div>
@@ -236,7 +389,7 @@
         <button
           type="button"
           onclick={handleTest}
-          disabled={isTesting || (localSettings.provider === 'gemini' ? !localSettings.geminiKey : !localSettings.mistralKey)}
+          disabled={isTesting || !isKeyProvided()}
           class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-40 text-slate-200 text-xs font-medium rounded-xl transition-all cursor-pointer"
         >
           {#if isTesting}

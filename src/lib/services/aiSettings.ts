@@ -1,9 +1,11 @@
 import { Store } from '@tauri-apps/plugin-store';
 
-export type AIProvider = 'gemini' | 'mistral';
+export type AIProvider = 'openrouter' | 'gemini' | 'mistral';
 
 export interface AISettings {
   provider: AIProvider;
+  openrouterKey: string;
+  openrouterModel: string;
   geminiKey: string;
   geminiModel: string;
   mistralKey: string;
@@ -14,7 +16,9 @@ const SETTINGS_FILENAME = 'roaddev-settings.json';
 const SETTINGS_KEY = 'ai_settings';
 
 export const DEFAULT_AI_SETTINGS: AISettings = {
-  provider: 'gemini',
+  provider: 'openrouter',
+  openrouterKey: '',
+  openrouterModel: 'auto-free',
   geminiKey: '',
   geminiModel: 'gemini-2.0-flash',
   mistralKey: '',
