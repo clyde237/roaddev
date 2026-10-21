@@ -18,7 +18,7 @@ const SETTINGS_KEY = 'ai_settings';
 export const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'openrouter',
   openrouterKey: '',
-  openrouterModel: 'auto-free',
+  openrouterModel: 'nvidia/nemotron-3.5-lightning:free',
   geminiKey: '',
   geminiModel: 'gemini-2.0-flash',
   mistralKey: '',

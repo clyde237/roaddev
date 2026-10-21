@@ -155,10 +155,10 @@ describe('Moteur Markdown de Roadmap', () => {
     const { PRESET_FREE_MODELS, FALLBACK_FREE_POOL_PRIMARY } = await import('../openrouterService');
 
     expect(DEFAULT_AI_SETTINGS.provider).toBe('openrouter');
-    expect(DEFAULT_AI_SETTINGS.openrouterModel).toBe('auto-free');
+    expect(DEFAULT_AI_SETTINGS.openrouterModel).toBe('nvidia/nemotron-3.5-lightning:free');
     expect(PRESET_FREE_MODELS.length).toBeGreaterThan(0);
     expect(FALLBACK_FREE_POOL_PRIMARY.length).toBe(3);
-    expect(FALLBACK_FREE_POOL_PRIMARY[0]).toContain(':free');
+    expect(FALLBACK_FREE_POOL_PRIMARY[0]).toBe('nvidia/nemotron-3.5-lightning:free');
   });
 });
 

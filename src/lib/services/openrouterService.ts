@@ -5,8 +5,8 @@ export interface OpenRouterModelInfo {
 }
 
 export const PRESET_FREE_MODELS: OpenRouterModelInfo[] = [
-  { id: 'minimax/minimax-m3.1-flash:free', name: 'MiniMax M3.1 Flash (1M tokens, rapide)' },
-  { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA Nemotron 3.5 Lightning (1M tokens)' },
+  { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA Nemotron 3.5 Lightning (1M tokens, ultra-rapide)' },
+  { id: 'minimax/minimax-m3.1-flash:free', name: 'MiniMax M3.1 Flash (1M tokens)' },
   { id: 'google/gemma-4-26b-a4b-it:free', name: 'Google Gemma 4 26B (256k tokens)' },
   { id: 'google/gemma-4-31b-it:free', name: 'Google Gemma 4 31B (256k tokens)' },
   { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', name: 'NVIDIA Nemotron 3 Nano Omni (Raisonnement)' },
@@ -14,8 +14,8 @@ export const PRESET_FREE_MODELS: OpenRouterModelInfo[] = [
 ];
 
 export const FALLBACK_FREE_POOL_PRIMARY = [
-  'minimax/minimax-m3.1-flash:free',
   'nvidia/nemotron-3.5-lightning:free',
+  'minimax/minimax-m3.1-flash:free',
   'google/gemma-4-26b-a4b-it:free',
 ];
 
@@ -101,6 +101,51 @@ function extractResponseContent(data: any): string {
 }
 
 /**
+ * Calcule l'embedding vectoriel (représentation sémantique) via OpenRouter
+ * Conforme au modèle spécifié: nvidia/nemotron-3.5-embed-1b:free
+ */
+export async function generateEmbedding(
+  input: string | string[],
+  apiKey: string,
+  model = 'nvidia/nemotron-3.5-embed-1b:free'
+): Promise<number[]> {
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('La clé API OpenRouter est manquante.');
+  }
+
+  const endpoint = 'https://openrouter.ai/api/v1/embeddings';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey.trim()}`,
+      'HTTP-Referer': 'https://github.com/clyde237/roaddev',
+      'X-Title': 'RoadDev Desktop',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      input,
+      encoding_format: 'float',
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message || `Erreur Embedding OpenRouter (${response.status} ${response.statusText})`;
+    throw new Error(errorMessage);
+  }
+
+  const vector = data?.data?.[0]?.embedding;
+  if (!vector || !Array.isArray(vector)) {
+    throw new Error("L'API OpenRouter n'a retourné aucun vecteur d'embedding valide.");
+  }
+
+  return vector;
+}
+
+/**
  * Envoie une requête de complétion à OpenRouter avec gestion automatique des fallbacks gratuits
  */
 export async function callOpenRouter(
@@ -111,6 +156,16 @@ export async function callOpenRouter(
 ): Promise<string> {
   if (!apiKey || apiKey.trim() === '') {
     throw new Error('La clé API OpenRouter est manquante.');
+  }
+
+  // Si l'utilisateur a sélectionné par mégarde le modèle d'embedding pour de la génération de texte,
+  // nous basculons automatiquement vers le modèle LLM génératif correspondant de la même famille
+  let targetModel = preferredModel;
+  if (targetModel === 'nvidia/nemotron-3.5-embed-1b:free' || targetModel.includes('embed')) {
+    console.info(
+      `Redirection automatique du modèle d'embedding (${targetModel}) vers le modèle LLM génératif NVIDIA Nemotron 3.5 Lightning.`
+    );
+    targetModel = 'nvidia/nemotron-3.5-lightning:free';
   }
 
   const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
@@ -152,9 +207,9 @@ export async function callOpenRouter(
   }
 
   // Si l'utilisateur a choisi la sélection automatique du meilleur modèle gratuit
-  if (preferredModel === 'auto-free') {
+  if (targetModel === 'auto-free') {
     try {
-      // 1er essai : Pool primaire de 3 modèles gratuits concurrents
+      // 1er essai : Pool primaire de 3 modèles gratuits concurrents (avec NVIDIA Nemotron en tête)
       return await executeRequest({ models: FALLBACK_FREE_POOL_PRIMARY });
     } catch (err: any) {
       console.warn('Échec pool primaire OpenRouter gratuit, basculement vers pool secondaire:', err?.message);
@@ -165,11 +220,11 @@ export async function callOpenRouter(
 
   // Modèle spécifique demandé par l'utilisateur
   try {
-    return await executeRequest({ model: preferredModel });
+    return await executeRequest({ model: targetModel });
   } catch (err: any) {
     // Si le modèle spécifique est surchargé (429) ou indisponible, repli automatique sur le pool gratuit
     if (err.status === 429 || (err.message && err.message.toLowerCase().includes('rate-limit'))) {
-      console.warn(`Modèle ${preferredModel} surchargé (429), basculement automatique sur le pool de modèles gratuits:`, err.message);
+      console.warn(`Modèle ${targetModel} surchargé (429), basculement automatique sur le pool de modèles gratuits:`, err.message);
       return await executeRequest({ models: FALLBACK_FREE_POOL_PRIMARY });
     }
     throw err;
