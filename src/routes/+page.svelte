@@ -4,7 +4,9 @@
   import Header from '$lib/components/Header.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ReadmeViewer from '$lib/components/ReadmeViewer.svelte';
+  import RoadmapView from '$lib/components/RoadmapView.svelte';
   import type { ActiveTab, ProjectSummary } from '$lib/types/project';
+  import type { RoadmapModel } from '$lib/types/roadmap';
   import { open } from '@tauri-apps/plugin-dialog';
   import {
     loadRecentProjects,
@@ -16,9 +18,13 @@
     detectReadme,
     saveReadme,
     createDefaultReadme,
-    computeRoadmapStats,
     type ReadmeDetectionResult,
   } from '$lib/services/projectService';
+  import {
+    loadRoadmap,
+    syncRoadmapToDisk,
+    calculateRoadmapProgress,
+  } from '$lib/services/roadmapSync';
 
   // Svelte 5 Runes for reactive state
   let projects = $state<ProjectSummary[]>([]);
@@ -34,6 +40,14 @@
     fullPath: null,
     content: '',
   });
+
+  // Roadmap state
+  let roadmapData = $state<RoadmapModel>({
+    title: '',
+    description: '',
+    phases: [],
+  });
+  let roadmapFullPath = $state<string>('');
 
   // Derived state for the active project
   let activeProject = $derived<ProjectSummary | null>(
@@ -59,14 +73,19 @@
 
   async function loadProjectData(project: ProjectSummary) {
     try {
-      // 1. Détection du README
+      // 1. Détection et chargement du README
       readmeData = await detectReadme(project.path);
 
-      // 2. Calcul des statistiques de ROADMAP
-      const stats = await computeRoadmapStats(project.path);
-      project.completedTasks = stats.completedTasks;
-      project.totalTasks = stats.totalTasks;
-      project.progressPercent = stats.progressPercent;
+      // 2. Chargement du ROADMAP.md
+      const roadmapResult = await loadRoadmap(project.path, project.name);
+      roadmapData = roadmapResult.roadmap;
+      roadmapFullPath = roadmapResult.fullPath;
+
+      // 3. Calcul des statistiques de ROADMAP
+      const stats = calculateRoadmapProgress(roadmapData);
+      project.completedTasks = stats.completed;
+      project.totalTasks = stats.total;
+      project.progressPercent = stats.percent;
 
       // Sauvegarde des stats mises à jour
       await saveRecentProjects(projects);
@@ -93,17 +112,18 @@
           activeProjectId = existing.id;
           await loadProjectData(existing);
         } else {
-          // Calcul initial des stats
-          const stats = await computeRoadmapStats(path);
+          // Chargement initial du roadmap
+          const roadmapResult = await loadRoadmap(path, name);
+          const stats = calculateRoadmapProgress(roadmapResult.roadmap);
 
           const newProject: ProjectSummary = {
             id: crypto.randomUUID(),
             name,
             path,
             lastOpened: Date.now(),
-            completedTasks: stats.completedTasks,
-            totalTasks: stats.totalTasks,
-            progressPercent: stats.progressPercent,
+            completedTasks: stats.completed,
+            totalTasks: stats.total,
+            progressPercent: stats.percent,
           };
 
           projects = [newProject, ...projects];
@@ -176,6 +196,27 @@
     const created = await createDefaultReadme(activeProject.path, activeProject.name);
     readmeData = created;
   }
+
+  /**
+   * Synchronisation bidirectionnelle atomique (< 15ms)
+   */
+  async function handleUpdateRoadmap(updated: RoadmapModel) {
+    roadmapData = updated;
+
+    if (activeProject && roadmapFullPath) {
+      // 1. Écriture atomique sur le disque
+      await syncRoadmapToDisk(roadmapFullPath, updated);
+
+      // 2. Recalcul immédiat des statistiques
+      const stats = calculateRoadmapProgress(updated);
+      activeProject.completedTasks = stats.completed;
+      activeProject.totalTasks = stats.total;
+      activeProject.progressPercent = stats.percent;
+
+      // 3. Sauvegarde de la progression du projet
+      await saveRecentProjects(projects);
+    }
+  }
 </script>
 
 <div class="flex h-full w-full overflow-hidden">
@@ -207,19 +248,13 @@
       {#if !activeProject}
         <EmptyState onOpenProject={handleOpenProject} />
       {:else if activeTab === 'roadmap'}
-        <div class="max-w-4xl mx-auto space-y-6">
-          <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-base font-semibold text-white">Suivi Roadmap — {activeProject.name}</h3>
-              <span class="text-xs font-mono text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
-                {activeProject.progressPercent}% complété
-              </span>
-            </div>
-            <p class="text-xs text-slate-400">
-              Le moteur de synchronisation bidirectionnelle temps réel (<code class="text-slate-300">ROADMAP.md</code>) sera activé au Sprint 3. Vous pouvez d'ores et déjà consulter et éditer la documentation de votre projet dans l'onglet <strong>README.md</strong>.
-            </p>
-          </div>
-        </div>
+        <!-- Onglet Roadmap Interactive -->
+        <RoadmapView
+          roadmap={roadmapData}
+          projectName={activeProject.name}
+          onUpdateRoadmap={handleUpdateRoadmap}
+          onTriggerAIGenerate={handleGenerateAI}
+        />
       {:else}
         <!-- Onglet README.md avec Visualiseur & Éditeur rapide -->
         <div class="h-full max-w-4xl mx-auto">
