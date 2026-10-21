@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import {
     X,
     Key,
@@ -45,14 +46,20 @@
   let testResult = $state<{ success: boolean; message: string } | null>(null);
   let isSaving = $state<boolean>(false);
 
+  let wasOpen = false;
+
   $effect(() => {
-    if (isOpen) {
-      localSettings = { ...settings };
-      if (!localSettings.openrouterModel || localSettings.openrouterModel === 'auto-free') {
-        localSettings.openrouterModel = RECOMMENDED_NEMOTRON_CHAT;
-      }
-      testResult = null;
+    const currentOpen = isOpen;
+    if (currentOpen && !wasOpen) {
+      untrack(() => {
+        localSettings = { ...settings };
+        if (!localSettings.openrouterModel || localSettings.openrouterModel === 'auto-free') {
+          localSettings.openrouterModel = RECOMMENDED_NEMOTRON_CHAT;
+        }
+        testResult = null;
+      });
     }
+    wasOpen = currentOpen;
   });
 
   async function pasteToKey(provider: 'openrouter' | 'gemini' | 'mistral') {
