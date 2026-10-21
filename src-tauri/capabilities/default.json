@@ -9,6 +9,7 @@
     "dialog:default",
     "store:default",
     "fs:default",
+    "clipboard-manager:default",
     {
       "identifier": "fs:scope",
       "allow": [

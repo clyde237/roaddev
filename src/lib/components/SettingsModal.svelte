@@ -63,16 +63,27 @@
   });
 
   async function pasteToKey(provider: 'openrouter' | 'gemini' | 'mistral') {
+    let text = '';
     try {
-      const text = await navigator.clipboard.readText();
-      if (text && text.trim().length > 0) {
-        const clean = text.trim();
-        if (provider === 'openrouter') localSettings.openrouterKey = clean;
-        else if (provider === 'gemini') localSettings.geminiKey = clean;
-        else if (provider === 'mistral') localSettings.mistralKey = clean;
+      const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
+      text = await readText();
+    } catch {
+      // Fallback navigateur
+    }
+
+    if (!text && typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+      try {
+        text = await navigator.clipboard.readText();
+      } catch (err) {
+        console.warn('Impossible de lire le presse-papier:', err);
       }
-    } catch (err) {
-      console.warn('Impossible de lire le presse-papier:', err);
+    }
+
+    if (text && text.trim().length > 0) {
+      const clean = text.trim();
+      if (provider === 'openrouter') localSettings.openrouterKey = clean;
+      else if (provider === 'gemini') localSettings.geminiKey = clean;
+      else if (provider === 'mistral') localSettings.mistralKey = clean;
     }
   }
 
