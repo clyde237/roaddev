@@ -9,21 +9,16 @@
     "dialog:default",
     "store:default",
     "fs:default",
+    "fs:read-all",
+    "fs:write-all",
+    "clipboard-manager:default",
     {
-      "identifier": "fs:allow-read-text-file",
-      "allow": ["$HOME/**", "**/*"]
-    },
-    {
-      "identifier": "fs:allow-write-text-file",
-      "allow": ["$HOME/**", "**/*"]
-    },
-    {
-      "identifier": "fs:allow-exists",
-      "allow": ["$HOME/**", "**/*"]
-    },
-    {
-      "identifier": "fs:allow-read-dir",
-      "allow": ["$HOME/**", "**/*"]
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME" },
+        { "path": "$HOME/**/*" },
+        { "path": "**/*" }
+      ]
     }
   ]
 }
